@@ -216,6 +216,7 @@
     <ClCompile Include="acia.c" />
     <ClCompile Include="adc.c" />
     <ClCompile Include="arm.c" />
+    <ClCompile Include="bbctext.c" />
     <ClCompile Include="cmos.c" />
     <ClCompile Include="compactcmos.c" />
     <ClCompile Include="compact_joystick.c" />
