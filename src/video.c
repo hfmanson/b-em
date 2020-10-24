@@ -19,6 +19,7 @@
 int fullscreen = 0;
 
 static int scrx, scry;
+static int scrx_mode7;
 int interlline = 0;
 
 static int colblack;
@@ -465,46 +466,40 @@ void mode7_makechars()
         for (y = 0; y < MODE7_CHAR_HEIGHT; y++) {
             int mask = 0x800;
             for (d = 0; d < MODE7_NEW_CHAR_WIDTH; d++) {
-                int idx = (c * MODE7_CHAR_NEW_HEIGHT + 2 * y) * MODE7_NEW_CHAR_WIDTH + d;
-                int idxi = idx + MODE7_NEW_CHAR_WIDTH;
-                if (y < MODE7_CHAR_HEIGHT - 1) {
+                if (y >= 1) {
+                    int idx = (c * MODE7_CHAR_NEW_HEIGHT + 2 * (y - 1)) * MODE7_NEW_CHAR_WIDTH + d;
+                    int idxi = idx + MODE7_NEW_CHAR_WIDTH;
                     mode7_chars[offs2 + d] = teletext_characters[idx];
                     mode7_charsi[offs2 + d] = teletext_characters[idxi];
-                    if (c >= 32 && c < 64) {
-                        mode7_graph[offs2 + d] = mode7_sepgraph[offs2 + d] = mode7_chars[offs2 + d];
-                        mode7_graphi[offs2 + d] = mode7_sepgraphi[offs2 + d] = mode7_charsi[offs2 + d];
-                    }
-                    else {
-                        int row = 0;
-                        // left block has a value of 0x0fc0, right 0x003f and both 0xfff
-                        if (y < 3) {
-                            if (c & 0x01) row |= 0x0fc0;
-                            if (c & 0x02) row |= 0x003f;
-                        }
-                        else if (y < 6) {
-                            if (c & 0x04) row |= 0x0fc0;
-                            if (c & 0x08) row |= 0x003f;
-
-                        }
-                        else {
-                            if (c & 0x10) row |= 0x0fc0;
-                            if (c & 0x40) row |= 0x003f;
-                        }
-
-                        mode7_graph[offs2 + d] = (row & mask) ? 15 : 0;
-                        mode7_graphi[offs2 + d] = (row & mask) ? 15 : 0;
-                        row &= 0x03cf;
-                        mode7_sepgraph[offs2 + d] = (row & mask) ? 15 : 0;
-                        mode7_sepgraphi[offs2 + d] = (row & mask) ? 15 : 0;
-                    }
                 }
                 else {
                     mode7_chars[offs2 + d] = 0;
                     mode7_charsi[offs2 + d] = 0;
-                    mode7_graph[offs2 + d] = 0;
-                    mode7_graphi[offs2 + d] = 0;
-                    mode7_sepgraph[offs2 + d] = 0;
-                    mode7_sepgraphi[offs2 + d] = 0;
+                }
+                if (c >= 32 && c < 64) {
+                    mode7_graph[offs2 + d] = mode7_sepgraph[offs2 + d] = mode7_chars[offs2 + d];
+                    mode7_graphi[offs2 + d] = mode7_sepgraphi[offs2 + d] = mode7_charsi[offs2 + d];
+                }
+                else {
+                    int row = 0;
+                    // left block has a value of 0x0fc0, right 0x003f and both 0xfff
+                    if (y < 3) {
+                        if (c & 0x01) row |= 0x0fc0;
+                        if (c & 0x02) row |= 0x003f;
+                    }
+                    else if (y < 8) {
+                        if (c & 0x04) row |= 0x0fc0;
+                        if (c & 0x08) row |= 0x003f;
+                    }
+                    else {
+                        if (c & 0x10) row |= 0x0fc0;
+                        if (c & 0x40) row |= 0x003f;
+                    }
+                    mode7_graph[offs2 + d] = (row & mask) ? 15 : 0;
+                    mode7_graphi[offs2 + d] = (row & mask) ? 15 : 0;
+                    row &= 0x03cf;
+                    mode7_sepgraph[offs2 + d] = (row & mask) ? 15 : 0;
+                    mode7_sepgraphi[offs2 + d] = (row & mask) ? 15 : 0;
                 }
                 mask >>= 1;
             }
@@ -549,6 +544,7 @@ static inline void mode7_render(ALLEGRO_LOCKED_REGION *region, uint8_t dat)
     uint8_t *mode7_px[2];
     int mode7_flashx = mode7_flash, mode7_dblx = mode7_dbl;
     int *on;
+    int mode7_pixel_x;
 
     if (scrx < (1280-32)) {
         if (mode7_need_new_lookup)
@@ -563,9 +559,10 @@ static inline void mode7_render(ALLEGRO_LOCKED_REGION *region, uint8_t dat)
 
         if (!mode7_dbl && mode7_nextdbl)
             on = mode7_lookup[mode7_bg & 7][mode7_bg & 7];
+        mode7_pixel_x = scrx / 16 * 12 + 116;
         if (dat == 255) {
             for (c = 0; c < MODE7_DISPLAY_WIDTH; c++)
-                put_pixel(region, scrx + c + 16, scry, colblack);
+                put_pixel(region, mode7_pixel_x + c, scry, colblack);
             return;
         }
 
@@ -675,11 +672,11 @@ static inline void mode7_render(ALLEGRO_LOCKED_REGION *region, uint8_t dat)
         int interindex = (vid_dtype_intern == VDT_INTERLACE) && interlline;
         for (c = 0; c < MODE7_DISPLAY_WIDTH; c++) {
             if (mode7_flashx && !mode7_flashon)
-                put_pixel(region, scrx + c + 16, scry, off);
+                put_pixel(region, mode7_pixel_x + c, scry, off);
             else if (mode7_dblx)
-                put_pixel(region, scrx + c + 16, scry, on[mode7_px[sc & 1][t] & 15]);
+                put_pixel(region, mode7_pixel_x + c, scry, on[mode7_px[sc & 1][t] & 15]);
             else
-                put_pixel(region, scrx + c + 16, scry, on[mode7_px[interindex][t] & 15]);
+                put_pixel(region, mode7_pixel_x + c, scry, on[mode7_px[interindex][t] & 15]);
             t++;
         }
 
@@ -979,8 +976,16 @@ void video_poll(int clocks, int timer_enable)
                     }
                 if (cdraw) {
                     if (cursoron && (ula_ctrl & cursorlook[cdraw])) {
-                        for (c = ((ula_ctrl & 0x10) ? 8 : 16); c >= 0; c--) {
-                            nula_putpixel(region, scrx + c, scry, get_pixel(region, scrx + c, scry) ^ 0x00ffffff);
+                        if (crtc_mode == 0) {
+                            for (c = 11; c >= 0; c--) {
+                                nula_putpixel(region, scrx / 16 * 12 + 106 + c, scry, get_pixel(region, scrx / 16 * 12 + 106 + c, scry) ^ 0x00ffffff);
+                            }
+                        }
+                        else {
+                            for (c = ((ula_ctrl & 0x10) ? 8 : 16); c >= 0; c--) {
+                                nula_putpixel(region, scrx + c, scry, get_pixel(region, scrx + c, scry) ^ 0x00ffffff);
+                            }
+
                         }
                     }
                     cdraw++;
@@ -1003,8 +1008,16 @@ void video_poll(int clocks, int timer_enable)
             }
             if (cdraw && scrx < (1280-16)) {
                 if (cursoron && (ula_ctrl & cursorlook[cdraw])) {
-                    for (c = ((ula_ctrl & 0x10) ? 8 : 16); c >= 0; c--) {
-                        nula_putpixel(region, scrx + c, scry, get_pixel(region, scrx + c, scry) ^ colwhite);
+                    if (crtc_mode == 0) {
+                        for (c = 11; c >= 0; c--) {
+                            nula_putpixel(region, scrx / 16 * 12 + 106 + c, scry, get_pixel(region, scrx / 16 * 12 + 106 + c, scry) ^ colwhite);
+                        }
+                    }
+                    else {
+                        for (c = ((ula_ctrl & 0x10) ? 8 : 16); c >= 0; c--) {
+                            nula_putpixel(region, scrx + c, scry, get_pixel(region, scrx + c, scry) ^ colwhite);
+                        }
+
                     }
                 }
                 cdraw++;
