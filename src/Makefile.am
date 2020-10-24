@@ -41,6 +41,7 @@ b_em_SOURCES = \
 	acia.c \
 	adc.c \
 	arm.c \
+	bbctext.c \
 	darm/darm.c \
 	darm/darm-tbl.c \
 	darm/armv7.c \
